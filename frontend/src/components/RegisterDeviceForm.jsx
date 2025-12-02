@@ -46,8 +46,25 @@ const RegisterDeviceForm = ({ onRegister, loading, account, computeDeviceId }) =
       </form>
 
       {lastDeviceId && (
-        <div className="mt-4 text-xs text-teal-300 break-all">
-          Latest Device ID: {lastDeviceId}
+        <div className="mt-4 p-3 bg-slate-800/50 rounded-xl border border-teal-400/30">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-teal-300">Latest Device ID:</span>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(lastDeviceId);
+                alert("Device ID copied to clipboard!");
+              }}
+              className="text-xs px-2 py-1 bg-teal-400/20 text-teal-300 rounded hover:bg-teal-400/30 transition"
+            >
+              Copy
+            </button>
+          </div>
+          <div className="text-xs text-teal-200 break-all font-mono">
+            {lastDeviceId}
+          </div>
+          <p className="text-xs text-slate-400 mt-2">
+            💡 Save this ID to fetch device details later, or use "Load My Devices" to see all your device IDs.
+          </p>
         </div>
       )}
     </div>

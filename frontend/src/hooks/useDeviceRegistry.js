@@ -116,13 +116,26 @@ export const useDeviceRegistry = () => {
       } catch (error) {
         console.error(error);
         let errorMessage = "Failed to register device.";
-        if (error.reason) {
-          errorMessage = error.reason;
-        } else if (error.shortMessage) {
-          errorMessage = error.shortMessage;
-        } else if (error.message) {
-          errorMessage = error.message;
+        
+        // Extract error message from various possible formats
+        const errorString = error.reason || error.shortMessage || error.message || String(error);
+        
+        // User-friendly error messages
+        if (errorString.includes("Device already exists") || errorString.includes("already exists")) {
+          errorMessage = "This device is already registered. Each device name can only be registered once per wallet.";
+        } else if (errorString.includes("Device name required") || errorString.includes("name required")) {
+          errorMessage = "Please enter a device name.";
+        } else if (errorString.includes("user rejected") || errorString.includes("User denied")) {
+          errorMessage = "Transaction was cancelled. Please try again.";
+        } else if (errorString.includes("insufficient funds") || errorString.includes("insufficient balance")) {
+          errorMessage = "Insufficient funds. Please add more ETH to your wallet.";
+        } else if (errorString.includes("nonce") || errorString.includes("replacement")) {
+          errorMessage = "Transaction error. Please try again in a moment.";
+        } else if (errorString) {
+          // Use the error message but make it more user-friendly
+          errorMessage = errorString.replace(/^Error: /, "").replace(/execution reverted: /, "");
         }
+        
         throw new Error(errorMessage);
       } finally {
         setLoading(false);

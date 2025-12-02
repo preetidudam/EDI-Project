@@ -71,6 +71,11 @@ function App() {
         </p>
       </header>
 
+      <Notifications
+        notification={notification}
+        onClose={clearNotification}
+      />
+
       <section className="space-y-6">
         <ConnectWalletButton
           account={account}
@@ -129,13 +134,18 @@ function App() {
               {loading ? "Loading..." : "Load My Devices"}
             </button>
           </div>
-          <DeviceList devices={myDevices} />
+          <DeviceList 
+            devices={myDevices} 
+            onDeviceIdClick={async (deviceId) => {
+              try {
+                await fetchDeviceById(deviceId);
+                pushNotification("success", "Device details loaded.");
+              } catch (error) {
+                pushNotification("error", error.message);
+              }
+            }}
+          />
         </div>
-
-        <Notifications
-          notification={notification}
-          onClose={clearNotification}
-        />
       </section>
     </main>
   );
