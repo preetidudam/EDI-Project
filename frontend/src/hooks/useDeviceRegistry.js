@@ -25,24 +25,36 @@ export const useDeviceRegistry = () => {
 
     const signer = await provider.getSigner();
     return new Contract(CONTRACT_ADDRESS, DEVICE_REGISTRY_ABI, signer);
-  }, []);
+  }, [isContractConfigured]);
 
   const connectWallet = useCallback(async () => {
     if (!window.ethereum) {
       throw new Error("MetaMask is required. Please install or enable it.");
     }
 
-    const provider = new BrowserProvider(window.ethereum);
-    const accounts = await provider.send("eth_requestAccounts", []);
-    const nextAccount = ethers.getAddress(accounts[0]);
-    const registry = await attachContract(provider);
+    try {
+      const provider = new BrowserProvider(window.ethereum);
+      const accounts = await provider.send("eth_requestAccounts", []);
+      
+      if (!accounts || accounts.length === 0) {
+        throw new Error("No accounts found. Please unlock MetaMask.");
+      }
 
-    setAccount(nextAccount);
-    setContract(registry);
-    setNotification({
-      type: "success",
-      message: `Connected as ${nextAccount}`,
-    });
+      const nextAccount = ethers.getAddress(accounts[0]);
+      const registry = await attachContract(provider);
+
+      setAccount(nextAccount);
+      setContract(registry);
+      setNotification({
+        type: "success",
+        message: `Connected as ${nextAccount}`,
+      });
+    } catch (error) {
+      if (error.code === 4001) {
+        throw new Error("Connection rejected. Please approve the connection request.");
+      }
+      throw error;
+    }
   }, [attachContract]);
 
   const computeDeviceId = useCallback((owner, deviceName) => {
@@ -66,12 +78,34 @@ export const useDeviceRegistry = () => {
       try {
         const tx = await contract.registerDevice(deviceName);
         const receipt = await tx.wait();
-        const event = receipt.logs.find(
-          (log) => log.fragment?.name === "DeviceRegistered"
-        );
-
-        const deviceId =
-          event?.args?.deviceId ?? computeDeviceId(account, deviceName);
+        
+        // Parse events using ethers v6 contract interface
+        let deviceId = null;
+        if (receipt && receipt.logs) {
+          try {
+            // Use contract interface to parse logs
+            const contractInterface = contract.interface;
+            for (const log of receipt.logs) {
+              try {
+                const parsedLog = contractInterface.parseLog(log);
+                if (parsedLog && parsedLog.name === "DeviceRegistered") {
+                  deviceId = parsedLog.args.deviceId;
+                  break;
+                }
+              } catch (e) {
+                // Not a DeviceRegistered event, continue
+                continue;
+              }
+            }
+          } catch (e) {
+            console.warn("Could not parse events from receipt:", e);
+          }
+        }
+        
+        // Fallback to computed deviceId if event parsing failed
+        if (!deviceId) {
+          deviceId = computeDeviceId(account, deviceName);
+        }
 
         setNotification({
           type: "success",
@@ -81,7 +115,15 @@ export const useDeviceRegistry = () => {
         return deviceId;
       } catch (error) {
         console.error(error);
-        throw new Error(error.shortMessage || error.message);
+        let errorMessage = "Failed to register device.";
+        if (error.reason) {
+          errorMessage = error.reason;
+        } else if (error.shortMessage) {
+          errorMessage = error.shortMessage;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        throw new Error(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -135,20 +177,40 @@ export const useDeviceRegistry = () => {
   useEffect(() => {
     if (!window.ethereum) return;
 
-    const handler = (accounts) => {
+    const handler = async (accounts) => {
       if (accounts.length === 0) {
         setAccount(null);
         setContract(null);
         setMyDevices([]);
         setSelectedDevice(null);
       } else {
-        setAccount(ethers.getAddress(accounts[0]));
+        try {
+          const newAccount = ethers.getAddress(accounts[0]);
+          setAccount(newAccount);
+          
+          // Re-attach contract with new account
+          if (isContractConfigured) {
+            const provider = new BrowserProvider(window.ethereum);
+            const registry = await attachContract(provider);
+            setContract(registry);
+          }
+        } catch (error) {
+          console.error("Error handling account change:", error);
+          setNotification({
+            type: "error",
+            message: "Failed to reconnect after account change.",
+          });
+        }
       }
     };
 
     window.ethereum.on("accountsChanged", handler);
-    return () => window.ethereum?.removeListener("accountsChanged", handler);
-  }, []);
+    return () => {
+      if (window.ethereum && window.ethereum.removeListener) {
+        window.ethereum.removeListener("accountsChanged", handler);
+      }
+    };
+  }, [isContractConfigured, attachContract]);
 
   return {
     account,

@@ -1,6 +1,29 @@
-# Getting Started with Create React App
+# Frontend - DID-IoT Device Registry
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+
+## ⚠️ Important Setup Step
+
+**Before running the app, you MUST create a `.env` file in the `frontend` directory (only once!):**
+
+1. Create a file named `.env` in the `frontend` folder (create it only once)
+2. Add the following line (replace with your deployed contract address):
+   ```
+   REACT_APP_DEVICE_REGISTRY_ADDRESS=0xYourDeployedContractAddress
+   ```
+
+**To get the contract address:**
+- For local development: Run `npm run deploy:local` in the root directory and copy the address
+- For Sepolia testnet: Run `npm run deploy:sepolia` in the root directory and copy the address
+
+**After creating the file once, you only need to update the address in the same `.env` file when:**
+- You deploy to a different network (local vs Sepolia)
+- You redeploy the contract (new address)
+- You switch between networks
+
+**You don't need to recreate the file each time you run the app - just update the address when needed!**
+
+**Without this file (or with a zero address), the MetaMask connection button will be disabled!**
 
 ## Available Scripts
 
